@@ -1,13 +1,29 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Star, MapPin, Clock, Users, Wifi, Car, Coffee, Shield, ChevronLeft, ChevronRight } from "lucide-react"
+import { Star, MapPin, Clock, Users, Wifi, Car, Coffee, Shield, ChevronLeft, ChevronRight, Send } from "lucide-react"
+import { useRouter, useParams } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 
 export default function SingleVenuePage() {
+  const router = useRouter()
+  const params = useParams()
+  const venueId = params.id
+  const { user, isAuthenticated } = useAuth()
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [reviews, setReviews] = useState([])
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false)
+  const [reviewForm, setReviewForm] = useState({
+    rating: 5,
+    comment: "",
+    userName: ""
+  })
 
   const venue = {
     id: 1,
@@ -43,29 +59,77 @@ export default function SingleVenuePage() {
     contact: "+91 98765 43210",
   }
 
-  const reviews = [
-    {
-      id: 1,
-      name: "Rahul Sharma",
-      rating: 5,
-      comment: "Excellent facility with well-maintained courts. The staff is very helpful and professional.",
-      date: "2 days ago",
-    },
-    {
-      id: 2,
-      name: "Priya Patel",
-      rating: 4,
-      comment: "Great place to play badminton. Courts are clean and booking process is smooth.",
-      date: "1 week ago",
-    },
-    {
-      id: 3,
-      name: "Amit Kumar",
-      rating: 5,
-      comment: "Love the tennis courts here. Perfect surface and good lighting for evening games.",
-      date: "2 weeks ago",
-    },
-  ]
+  // Fetch reviews on component mount
+  useEffect(() => {
+    fetchReviews()
+    if (user) {
+      setReviewForm(prev => ({ ...prev, userName: user.fullname || "" }))
+    }
+  }, [venueId, user])
+
+  const fetchReviews = async () => {
+    try {
+      const response = await fetch(`/api/venues/${venueId}/reviews`)
+      if (response.ok) {
+        const data = await response.json()
+        setReviews(data.reviews || [])
+      }
+    } catch (error) {
+      console.error('Error fetching reviews:', error)
+    }
+  }
+
+  const handleReviewSubmit = async (e) => {
+    e.preventDefault()
+    
+    if (!isAuthenticated) {
+      alert('Please login to submit a review')
+      return
+    }
+
+    if (!reviewForm.comment.trim()) {
+      alert('Please enter a comment')
+      return
+    }
+
+    setIsSubmittingReview(true)
+
+    try {
+      const response = await fetch(`/api/venues/${venueId}/reviews`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          rating: reviewForm.rating,
+          comment: reviewForm.comment,
+          userName: reviewForm.userName,
+          userEmail: user?.email || null
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        // Add new review to the list
+        setReviews(prev => [data.review, ...prev])
+        // Reset form
+        setReviewForm({
+          rating: 5,
+          comment: "",
+          userName: reviewForm.userName
+        })
+        alert('Review submitted successfully!')
+      } else {
+        const errorData = await response.json()
+        alert(errorData.message || 'Failed to submit review')
+      }
+    } catch (error) {
+      console.error('Error submitting review:', error)
+      alert('Failed to submit review. Please try again.')
+    } finally {
+      setIsSubmittingReview(false)
+    }
+  }
 
   const nextImage = () => {
     setCurrentImageIndex((prev) => (prev + 1) % venue.images.length)
@@ -75,37 +139,25 @@ export default function SingleVenuePage() {
     setCurrentImageIndex((prev) => (prev - 1 + venue.images.length) % venue.images.length)
   }
 
+  const handleBookNow = () => {
+    router.push(`/booking?venue=${venueId}`)
+  }
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffTime = Math.abs(now - date)
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    
+    if (diffDays === 1) return '1 day ago'
+    if (diffDays < 7) return `${diffDays} days ago`
+    if (diffDays < 30) return `${Math.ceil(diffDays / 7)} weeks ago`
+    if (diffDays < 365) return `${Math.ceil(diffDays / 30)} months ago`
+    return `${Math.ceil(diffDays / 365)} years ago`
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-blue-600">QuickCourt</h1>
-            </div>
-            <nav className="hidden md:flex space-x-8">
-              <a href="/" className="text-gray-700 hover:text-blue-600">
-                Home
-              </a>
-              <a href="/venues" className="text-gray-700 hover:text-blue-600">
-                Venues
-              </a>
-              <a href="/profile" className="text-gray-700 hover:text-blue-600">
-                Profile
-              </a>
-              <a href="/bookings" className="text-gray-700 hover:text-blue-600">
-                My Bookings
-              </a>
-            </nav>
-            <div className="flex items-center space-x-4">
-              <Button variant="outline">Login</Button>
-              <Button>Sign Up</Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Breadcrumb */}
         <nav className="mb-6">
@@ -177,7 +229,7 @@ export default function SingleVenuePage() {
                   <div className="flex items-center">
                     <Star className="h-5 w-5 text-yellow-400 fill-current" />
                     <span className="ml-1 font-semibold">{venue.rating}</span>
-                    <span className="ml-1 text-gray-600">({venue.reviews} reviews)</span>
+                    <span className="ml-1 text-gray-600">({reviews.length} reviews)</span>
                   </div>
                 </div>
               </CardHeader>
@@ -212,10 +264,11 @@ export default function SingleVenuePage() {
 
             {/* Tabs for Additional Info */}
             <Tabs defaultValue="amenities" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="amenities">Amenities</TabsTrigger>
                 <TabsTrigger value="about">About Venue</TabsTrigger>
                 <TabsTrigger value="reviews">Reviews</TabsTrigger>
+                <TabsTrigger value="location">Location</TabsTrigger>
               </TabsList>
 
               <TabsContent value="amenities">
@@ -244,28 +297,143 @@ export default function SingleVenuePage() {
               <TabsContent value="reviews">
                 <Card>
                   <CardContent className="pt-6">
-                    <div className="space-y-6">
-                      {reviews.map((review) => (
-                        <div key={review.id} className="border-b pb-4 last:border-b-0">
-                          <div className="flex justify-between items-start mb-2">
-                            <div>
-                              <h5 className="font-medium">{review.name}</h5>
-                              <div className="flex items-center">
-                                {Array.from({ length: 5 }).map((_, i) => (
+                    {/* Review Form */}
+                    {isAuthenticated && (
+                      <div className="mb-8 p-6 bg-gray-50 rounded-lg">
+                        <h4 className="text-lg font-semibold mb-4">Write a Review</h4>
+                        <form onSubmit={handleReviewSubmit} className="space-y-4">
+                          <div>
+                            <Label htmlFor="userName">Your Name</Label>
+                            <Input
+                              id="userName"
+                              value={reviewForm.userName}
+                              onChange={(e) => setReviewForm(prev => ({ ...prev, userName: e.target.value }))}
+                              placeholder="Enter your name"
+                              required
+                            />
+                          </div>
+                          
+                          <div>
+                            <Label>Rating</Label>
+                            <div className="flex items-center space-x-1 mt-2">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <button
+                                  key={star}
+                                  type="button"
+                                  onClick={() => setReviewForm(prev => ({ ...prev, rating: star }))}
+                                  className="focus:outline-none"
+                                >
                                   <Star
-                                    key={i}
-                                    className={`h-4 w-4 ${
-                                      i < review.rating ? "text-yellow-400 fill-current" : "text-gray-300"
+                                    className={`h-6 w-6 ${
+                                      star <= reviewForm.rating
+                                        ? "text-yellow-400 fill-current"
+                                        : "text-gray-300"
                                     }`}
                                   />
-                                ))}
-                              </div>
+                                </button>
+                              ))}
+                              <span className="ml-2 text-sm text-gray-600">
+                                {reviewForm.rating} out of 5
+                              </span>
                             </div>
-                            <span className="text-sm text-gray-500">{review.date}</span>
                           </div>
-                          <p className="text-gray-700">{review.comment}</p>
+
+                          <div>
+                            <Label htmlFor="comment">Your Review</Label>
+                            <Textarea
+                              id="comment"
+                              value={reviewForm.comment}
+                              onChange={(e) => setReviewForm(prev => ({ ...prev, comment: e.target.value }))}
+                              placeholder="Share your experience with this venue..."
+                              rows={4}
+                              required
+                            />
+                          </div>
+
+                          <Button 
+                            type="submit" 
+                            disabled={isSubmittingReview}
+                            className="flex items-center"
+                          >
+                            {isSubmittingReview ? (
+                              "Submitting..."
+                            ) : (
+                              <>
+                                <Send className="h-4 w-4 mr-2" />
+                                Submit Review
+                              </>
+                            )}
+                          </Button>
+                        </form>
+                      </div>
+                    )}
+
+                    {/* Reviews List */}
+                    <div className="space-y-6">
+                      {reviews.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          <Star className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                          <p>No reviews yet. Be the first to review this venue!</p>
                         </div>
-                      ))}
+                      ) : (
+                        reviews.map((review) => (
+                          <div key={review._id || review.id} className="border-b pb-4 last:border-b-0">
+                            <div className="flex justify-between items-start mb-2">
+                              <div>
+                                <h5 className="font-medium">{review.userName}</h5>
+                                <div className="flex items-center">
+                                  {Array.from({ length: 5 }).map((_, i) => (
+                                    <Star
+                                      key={i}
+                                      className={`h-4 w-4 ${
+                                        i < review.rating ? "text-yellow-400 fill-current" : "text-gray-300"
+                                      }`}
+                                    />
+                                  ))}
+                                  <span className="ml-2 text-sm text-gray-600">
+                                    {review.rating}/5
+                                  </span>
+                                </div>
+                              </div>
+                              <span className="text-sm text-gray-500">
+                                {formatDate(review.createdAt)}
+                              </span>
+                            </div>
+                            <p className="text-gray-700">{review.comment}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="location">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="font-semibold mb-2">Address</h4>
+                        <p className="text-gray-700">{venue.address}</p>
+                      </div>
+                      
+                      {/* Static Map Image */}
+                      <div>
+                        <h4 className="font-semibold mb-2">Location</h4>
+                        <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
+                          <img
+                            src="/map-placeholder.png"
+                            alt="Venue Location Map"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.src = "https://via.placeholder.com/800x400/2563eb/ffffff?text=Map+View"
+                            }}
+                          />
+                        </div>
+                        <p className="text-sm text-gray-500 mt-2 text-center">
+                          Interactive map coming soon
+                        </p>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -286,7 +454,7 @@ export default function SingleVenuePage() {
                     <p className="text-sm text-gray-600 mb-2">Starting from</p>
                     <p className="text-2xl font-bold text-blue-600">₹300/hour</p>
                   </div>
-                  <Button className="w-full" size="lg">
+                  <Button className="w-full" size="lg" onClick={handleBookNow}>
                     Book Now
                   </Button>
                   <p className="text-xs text-gray-500 text-center">Free cancellation up to 2 hours before booking</p>
@@ -321,14 +489,21 @@ export default function SingleVenuePage() {
               </CardContent>
             </Card>
 
-            {/* Location Map Placeholder */}
+            {/* Location Map */}
             <Card>
               <CardHeader>
                 <CardTitle>Location</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="aspect-square bg-gray-200 rounded-lg flex items-center justify-center">
-                  <p className="text-gray-500">Map View</p>
+                <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                  <img
+                    src="/map-placeholder.png"
+                    alt="Venue Location"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.src = "https://via.placeholder.com/400x400/2563eb/ffffff?text=Map+View"
+                    }}
+                  />
                 </div>
                 <p className="text-sm text-gray-600 mt-2">{venue.address}</p>
               </CardContent>

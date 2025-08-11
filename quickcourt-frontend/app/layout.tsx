@@ -4,19 +4,15 @@ import { GeistMono } from 'geist/font/mono'
 import { MapPin } from 'lucide-react'
 import './globals.css'
 import dynamic from 'next/dynamic'
+import { AuthProvider } from '@/lib/auth-context'
+import { Navigation } from '@/components/navigation'
 
 const ChatWidget = dynamic(() => import('@/components/chat/ChatWidget'), { ssr: false })
 
 export const metadata: Metadata = {
-<<<<<<< HEAD
   title: 'Quickcourt',
   description: 'Created with v0',
   generator: 'v0.dev',
-=======
-  title: 'QuickCourt',
-  description: 'Created by 4 Developers',
-  icons: 'MapPin'
->>>>>>> bd93c9fce8bb617a73b2cc843e128edad8318bf7
 }
 
 export default function RootLayout({
@@ -30,9 +26,12 @@ export default function RootLayout({
       className={`${GeistSans.variable} ${GeistMono.variable}`}
     >
       <body style={{ fontFamily: GeistSans.style.fontFamily }}>
-        {children}
-        {/* Global Chat Widget */}
-        <ChatWidget />
+        <AuthProvider>
+          <Navigation />
+          {children}
+          {/* Global Chat Widget */}
+          <ChatWidget />
+        </AuthProvider>
       </body>
     </html>
   )

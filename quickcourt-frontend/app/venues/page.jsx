@@ -5,10 +5,11 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Navigation } from "@/components/navigation"
 import { Search, MapPin, Star, SlidersHorizontal } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 export default function VenuesPage() {
+  const router = useRouter()
   const [venues, setVenues] = useState([])
   const [filteredVenues, setFilteredVenues] = useState([])
   const [searchQuery, setSearchQuery] = useState("")
@@ -161,17 +162,15 @@ export default function VenuesPage() {
   }, [searchQuery, selectedLocation, selectedSport, priceRange, sortBy, venues])
 
   const handleVenueClick = (venueId) => {
-    window.location.href = `/venues/${venueId}`
+    router.push(`/venues/${venueId}`)
   }
 
   const handleBookNow = (venueId) => {
-    window.location.href = `/booking?venue=${venueId}`
+    router.push(`/booking?venue=${venueId}`)
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navigation />
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">

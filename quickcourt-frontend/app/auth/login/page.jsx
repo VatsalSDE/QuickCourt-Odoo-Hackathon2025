@@ -7,9 +7,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Eye, EyeOff } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 
 export default function LoginPage() {
   const router = useRouter()
+  const { login } = useAuth()
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -33,38 +35,26 @@ export default function LoginPage() {
     setSuccess("")
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        // Store token in localStorage
-        localStorage.setItem('token', data.token)
-        localStorage.setItem('user', JSON.stringify(data.user))
-        
+      const result = await login(formData.email, formData.password)
+      
+      if (result.success) {
         setSuccess('Login successful! Redirecting...')
         
         // Redirect based on user role
         setTimeout(() => {
-          if (data.user.role === 'admin') {
+          if (result.user.role === 'admin') {
             router.push('/admin/dashboard')
-          } else if (data.user.role === 'facility_owner') {
+          } else if (result.user.role === 'facility_owner') {
             router.push('/owner/dashboard')
           } else {
             router.push('/')
           }
         }, 1500)
       } else {
-        setError(data.message || 'Login failed')
+        setError(result.error || 'Login failed')
       }
     } catch (err) {
-      setError('Network error. Please try again.')
+      setError('An unexpected error occurred. Please try again.')
     } finally {
       setIsLoading(false)
     }

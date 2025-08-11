@@ -8,9 +8,11 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Eye, EyeOff, Upload } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 
 export default function SignupPage() {
   const router = useRouter()
+  const { signup } = useAuth()
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -46,32 +48,24 @@ export default function SignupPage() {
     setSuccess("")
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fullname: formData.fullName,
-          email: formData.email,
-          password: formData.password,
-          confirmPassword: formData.confirmPassword,
-          role: formData.role,
-        }),
+      const result = await signup({
+        fullname: formData.fullName,
+        email: formData.email,
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+        role: formData.role,
       })
 
-      const data = await response.json()
-
-      if (response.ok) {
-        setSuccess(data.message)
+      if (result.success) {
+        setSuccess(result.message)
         setTimeout(() => {
           router.push('/auth/login')
         }, 1500)
       } else {
-        setError(data.message || 'Signup failed')
+        setError(result.error || 'Signup failed')
       }
     } catch (err) {
-      setError('Network error. Please try again.')
+      setError('An unexpected error occurred. Please try again.')
     } finally {
       setIsLoading(false)
     }

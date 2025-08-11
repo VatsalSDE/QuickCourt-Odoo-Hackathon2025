@@ -12,10 +12,13 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Menu, User, Calendar, MapPin, BarChart3, Building2, Clock, Settings, LogOut, Shield } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import { useRouter } from "next/navigation"
+import { Badge } from "@/components/ui/badge"
 
 export function Navigation() {
-  const [isLoggedIn, setIsLoggedIn] = useState(true) // Simulate logged in state
-  const [userRole, setUserRole] = useState("user") // "user", "facility_owner", or "admin"
+  const { user, isAuthenticated, logout, getUserRole } = useAuth()
+  const router = useRouter()
 
   const userNavItems = [
     { href: "/", label: "Home", icon: MapPin },
@@ -41,31 +44,37 @@ export function Navigation() {
     { href: "/admin/profile", label: "Profile", icon: Settings },
   ]
 
-  const navItems =
-    userRole === "facility_owner" ? facilityOwnerNavItems : userRole === "admin" ? adminNavItems : userNavItems
-
-  const toggleRole = () => {
-    const roles = ["user", "facility_owner", "admin"]
-    const currentIndex = roles.indexOf(userRole)
-    const nextIndex = (currentIndex + 1) % roles.length
-    setUserRole(roles[nextIndex])
+  const getNavItems = () => {
+    const role = getUserRole()
+    if (role === "facility_owner") return facilityOwnerNavItems
+    if (role === "admin") return adminNavItems
+    return userNavItems
   }
 
+  const navItems = getNavItems()
+
   const handleNavClick = (href) => {
-    window.location.href = href
+    router.push(href)
   }
 
   const handleLogin = () => {
-    window.location.href = "/auth/login"
+    router.push("/auth/login")
   }
 
   const handleSignup = () => {
-    window.location.href = "/auth/signup"
+    router.push("/auth/signup")
   }
 
   const handleLogout = () => {
-    setIsLoggedIn(false)
-    window.location.href = "/"
+    logout()
+    router.push("/")
+  }
+
+  const getRoleDisplayName = () => {
+    const role = getUserRole()
+    if (role === "facility_owner") return "Facility Owner"
+    if (role === "admin") return "Admin"
+    return "User"
   }
 
   return (
@@ -86,10 +95,15 @@ export function Navigation() {
             <span className="text-xl font-bold">QuickCourt</span>
           </a>
 
-          {/* Role Toggle for Demo */}
-          <Button variant="outline" size="sm" onClick={toggleRole} className="hidden md:flex bg-transparent">
-            Switch to {userRole === "user" ? "Owner" : userRole === "facility_owner" ? "Admin" : "User"} View
-          </Button>
+          {/* Role Display for Authenticated Users */}
+          {isAuthenticated && (
+            <div className="hidden md:flex items-center space-x-2">
+              <span className="text-sm text-gray-600">Role:</span>
+              <Badge variant="secondary" className="text-xs">
+                {getRoleDisplayName()}
+              </Badge>
+            </div>
+          )}
         </div>
 
         {/* Desktop Navigation */}
@@ -112,17 +126,24 @@ export function Navigation() {
 
         {/* Desktop Auth */}
         <div className="hidden md:flex items-center space-x-4">
-          {isLoggedIn ? (
+          {isAuthenticated ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src="/diverse-user-avatars.png" alt="User" />
-                    <AvatarFallback>JD</AvatarFallback>
+                    <AvatarImage src={user?.profile?.avatar || "/placeholder-user.jpg"} alt="User" />
+                    <AvatarFallback>{user?.fullname?.charAt(0) || "U"}</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end">
+                <div className="px-2 py-1.5 text-sm font-medium">
+                  {user?.fullname}
+                </div>
+                <div className="px-2 py-1.5 text-xs text-gray-500">
+                  {getRoleDisplayName()}
+                </div>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => handleNavClick("/profile")}>
                   <User className="mr-2 h-4 w-4" />
                   Profile
@@ -159,9 +180,14 @@ export function Navigation() {
           </SheetTrigger>
           <SheetContent side="right" className="w-[300px]">
             <div className="flex flex-col space-y-4">
-              <Button variant="outline" size="sm" onClick={toggleRole}>
-                Switch to {userRole === "user" ? "Owner" : userRole === "facility_owner" ? "Admin" : "User"} View
-              </Button>
+              {isAuthenticated && (
+                <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded">
+                  <span className="text-sm text-gray-600">Role:</span>
+                  <Badge variant="secondary" className="text-xs">
+                    {getRoleDisplayName()}
+                  </Badge>
+                </div>
+              )}
 
               {navItems.map((item) => (
                 <a
@@ -178,8 +204,11 @@ export function Navigation() {
                 </a>
               ))}
 
-              {isLoggedIn ? (
+              {isAuthenticated ? (
                 <div className="pt-4 border-t">
+                  <div className="px-2 py-1.5 text-sm font-medium mb-2">
+                    {user?.fullname}
+                  </div>
                   <Button variant="ghost" size="sm" className="w-full justify-start" onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
                     Logout
