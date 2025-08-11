@@ -235,17 +235,18 @@ const OwnerDashboard = () => {
               <Typography variant="h6" fontWeight="bold" gutterBottom>
                 Peak Booking Hours
               </Typography>
-              <Box height={250}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={peakHours}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="hour" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="bookings" fill="#1976d2" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Box>
+              <BarChart
+                xAxis={[{
+                  scaleType: 'band',
+                  data: peakHours.map(item => item.hour)
+                }]}
+                series={[{
+                  data: peakHours.map(item => item.bookings),
+                  label: 'Bookings',
+                }]}
+                width={400}
+                height={250}
+              />
             </CardContent>
           </Card>
         </Grid>
