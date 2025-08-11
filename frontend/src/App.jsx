@@ -6,6 +6,7 @@ import { AuthProvider } from './context/AuthContext';
 import { AppProvider } from './context/AppContext';
 import AuthGuard from './components/Auth/AuthGuard';
 import Layout from './components/Layout/Layout';
+import { useAuth } from './context/AuthContext';
 
 // Pages
 import LoginPage from './pages/Public/LoginPage';
@@ -32,6 +33,23 @@ import AdminDashboard from './pages/Admin/AdminDashboard';
 import FacilityApproval from './pages/Admin/FacilityApproval';
 import UserManagement from './pages/Admin/UserManagement';
 import AdminProfile from './pages/Admin/AdminProfile';
+
+// Role-based redirect component
+const RoleBasedRedirect = () => {
+  const { user } = useAuth();
+  
+  if (!user) return <Navigate to="/login" replace />;
+  
+  switch (user.role) {
+    case 'admin':
+      return <Navigate to="/app/admin/dashboard" replace />;
+    case 'facility_owner':
+      return <Navigate to="/app/owner/dashboard" replace />;
+    case 'user':
+    default:
+      return <Navigate to="/app/user/home" replace />;
+  }
+};
 
 const theme = createTheme({
   palette: {
@@ -120,7 +138,7 @@ function App() {
                 <Route path="admin/profile" element={<AdminProfile />} />
                 
                 {/* Default redirect based on role */}
-                <Route path="" element={<Navigate to="user/home" replace />} />
+                <Route path="" element={<RoleBasedRedirect />} />
               </Route>
               
               {/* Fallback */}
