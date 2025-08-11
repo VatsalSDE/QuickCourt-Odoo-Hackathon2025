@@ -164,17 +164,18 @@ const AdminDashboard = () => {
               <Typography variant="h6" fontWeight="bold" gutterBottom>
                 Booking Activity
               </Typography>
-              <Box height={250}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={bookingActivity}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="bookings" fill="#1976d2" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Box>
+              <BarChart
+                xAxis={[{
+                  scaleType: 'band',
+                  data: bookingActivity.map(item => item.month)
+                }]}
+                series={[{
+                  data: bookingActivity.map(item => item.bookings),
+                  label: 'Bookings',
+                }]}
+                width={400}
+                height={250}
+              />
             </CardContent>
           </Card>
         </Grid>
