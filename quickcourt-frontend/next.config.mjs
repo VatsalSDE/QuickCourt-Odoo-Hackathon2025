@@ -9,6 +9,10 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Suppress Grammarly extension warnings
+  experimental: {
+    suppressHydrationWarning: true,
+  },
 }
 
 export default nextConfig

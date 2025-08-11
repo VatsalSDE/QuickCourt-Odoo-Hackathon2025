@@ -30,10 +30,14 @@ exports.signup = async (req, res) => {
       email,
       password: hashedPassword,
       role,
-      is_verified: false,
+      is_banned: false,
     });
     await user.save();
-    res.status(201).json({ message: 'Signup successful.', userId: user._id });
+
+    res.status(201).json({
+      message: 'Signup successful. You can now log in.',
+      userId: user._id,
+    });
   } catch (err) {
     if (err && err.code === 11000) {
       return res.status(409).json({ message: 'Email already registered.' });
@@ -56,6 +60,9 @@ exports.login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials.' });
+    }
+    if (user.is_banned) {
+      return res.status(403).json({ message: 'Account is banned.' });
     }
     const token = jwt.sign({ userId: user._id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, user: { id: user._id, fullname: user.fullname, email: user.email, role: user.role, avatar: user.avatar } });

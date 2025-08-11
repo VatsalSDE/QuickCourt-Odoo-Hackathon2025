@@ -31,7 +31,10 @@ const userSchema = new mongoose.Schema({
   avatar: {
     type: String,
   },
-  is_verified: {
+  location: {
+    type: String,
+  },
+  is_banned: {
     type: Boolean,
     default: false,
   },

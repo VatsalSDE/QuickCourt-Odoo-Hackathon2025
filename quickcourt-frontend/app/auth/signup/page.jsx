@@ -7,8 +7,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Eye, EyeOff, Upload } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 export default function SignupPage() {
+  const router = useRouter()
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -20,7 +22,8 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [step, setStep] = useState(1) // 1: signup form, 2: OTP verification
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
 
   const handleInputChange = (e) => {
     setFormData({
@@ -39,69 +42,39 @@ export default function SignupPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
+    setError("")
+    setSuccess("")
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fullname: formData.fullName,
+          email: formData.email,
+          password: formData.password,
+          confirmPassword: formData.confirmPassword,
+          role: formData.role,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setSuccess(data.message)
+        setTimeout(() => {
+          router.push('/auth/login')
+        }, 1500)
+      } else {
+        setError(data.message || 'Signup failed')
+      }
+    } catch (err) {
+      setError('Network error. Please try again.')
+    } finally {
       setIsLoading(false)
-      setStep(2) // Move to OTP verification
-    }, 1000)
-  }
-
-  const handleOTPVerification = (e) => {
-    e.preventDefault()
-    setIsLoading(true)
-
-    // Simulate OTP verification
-    setTimeout(() => {
-      setIsLoading(false)
-      console.log("Account created successfully")
-      // Redirect to login or dashboard
-    }, 1000)
-  }
-
-  if (step === 2) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-center">Verify Your Email</CardTitle>
-              <p className="text-center text-gray-600">We've sent a verification code to {formData.email}</p>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleOTPVerification} className="space-y-6">
-                <div>
-                  <Label htmlFor="otp">Enter 6-digit code</Label>
-                  <Input
-                    id="otp"
-                    name="otp"
-                    type="text"
-                    maxLength="6"
-                    required
-                    placeholder="000000"
-                    className="mt-1 text-center text-2xl tracking-widest"
-                  />
-                </div>
-
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Verifying..." : "Verify Account"}
-                </Button>
-
-                <div className="text-center">
-                  <button
-                    type="button"
-                    className="text-blue-600 hover:text-blue-500 text-sm"
-                    onClick={() => console.log("Resend OTP")}
-                  >
-                    Didn't receive the code? Resend
-                  </button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    )
+    }
   }
 
   return (
@@ -123,6 +96,16 @@ export default function SignupPage() {
             <CardTitle>Sign Up</CardTitle>
           </CardHeader>
           <CardContent>
+            {error && (
+              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                {error}
+              </div>
+            )}
+            {success && (
+              <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
+                {success}
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <Label htmlFor="fullName">Full Name</Label>
