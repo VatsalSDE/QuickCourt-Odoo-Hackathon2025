@@ -96,19 +96,24 @@ const AdminDashboard = () => {
               <Typography variant="h6" fontWeight="bold" gutterBottom>
                 Platform Growth
               </Typography>
-              <Box height={300}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={userGrowth}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="users" stroke="#1976d2" name="Users" />
-                    <Line type="monotone" dataKey="facilities" stroke="#dc004e" name="Facilities" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </Box>
+              <LineChart
+                width={800}
+                height={300}
+                series={[
+                  {
+                    data: userGrowth.map(item => item.users),
+                    label: 'Users',
+                  },
+                  {
+                    data: userGrowth.map(item => item.facilities),
+                    label: 'Facilities',
+                  },
+                ]}
+                xAxis={[{
+                  scaleType: 'point',
+                  data: userGrowth.map(item => item.month)
+                }]}
+              />
             </CardContent>
           </Card>
         </Grid>
