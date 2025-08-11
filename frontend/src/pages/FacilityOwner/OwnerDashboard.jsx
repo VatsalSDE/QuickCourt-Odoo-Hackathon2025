@@ -133,20 +133,24 @@ const OwnerDashboard = () => {
               <Typography variant="h6" fontWeight="bold" gutterBottom>
                 Booking & Revenue Trends
               </Typography>
-              <Box height={300}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={bookingTrends}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis yAxisId="left" />
-                    <YAxis yAxisId="right" orientation="right" />
-                    <Tooltip />
-                    <Legend />
-                    <Bar yAxisId="left" dataKey="bookings" fill="#1976d2" name="Bookings" />
-                    <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#dc004e" name="Revenue (₹)" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </Box>
+              <LineChart
+                width={800}
+                height={300}
+                series={[
+                  {
+                    data: bookingTrends.map(item => item.bookings),
+                    label: 'Bookings',
+                  },
+                  {
+                    data: bookingTrends.map(item => item.revenue / 100),
+                    label: 'Revenue (₹00s)',
+                  },
+                ]}
+                xAxis={[{
+                  scaleType: 'point',
+                  data: bookingTrends.map(item => item.date)
+                }]}
+              />
             </CardContent>
           </Card>
         </Grid>
