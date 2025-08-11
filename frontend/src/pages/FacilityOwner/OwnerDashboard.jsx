@@ -211,27 +211,19 @@ const OwnerDashboard = () => {
               <Typography variant="h6" fontWeight="bold" gutterBottom>
                 Popular Sports
               </Typography>
-              <Box height={250}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={sportDistribution}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {sportDistribution.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </Box>
+              <PieChart
+                series={[
+                  {
+                    data: sportDistribution.map((item, index) => ({
+                      id: index,
+                      value: item.value,
+                      label: item.name,
+                    })),
+                  },
+                ]}
+                width={400}
+                height={250}
+              />
             </CardContent>
           </Card>
         </Grid>
