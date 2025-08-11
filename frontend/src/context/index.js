@@ -1,1 +1,2 @@
-// Context providers will be placed here
+export { AuthProvider, useAuth } from './AuthContext';
+export { AppProvider, useApp } from './AppContext';
