@@ -2,6 +2,8 @@ import React, { createContext, useContext, useReducer, useEffect } from 'react';
 
 const AuthContext = createContext();
 
+const API_BASE_URL = 'http://localhost:5000/api';
+
 const authReducer = (state, action) => {
   switch (action.type) {
     case 'LOGIN_START':
@@ -62,12 +64,14 @@ export const AuthProvider = ({ children }) => {
   // Check for existing session on app load
   useEffect(() => {
     const savedUser = localStorage.getItem('quickcourt_user');
-    if (savedUser) {
+    const savedToken = localStorage.getItem('quickcourt_token');
+    if (savedUser && savedToken) {
       try {
         const user = JSON.parse(savedUser);
         dispatch({ type: 'LOGIN_SUCCESS', payload: user });
       } catch (error) {
         localStorage.removeItem('quickcourt_user');
+        localStorage.removeItem('quickcourt_token');
       }
     }
   }, []);
@@ -76,45 +80,27 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: 'LOGIN_START' });
     
     try {
-      // Mock login - in real app, this would be an API call
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
-      
-      // Mock users for demo
-      const mockUsers = {
-        'user@quickcourt.com': {
-          id: 1,
-          email: 'user@quickcourt.com',
-          name: 'John Doe',
-          role: 'user',
-          avatar: '/api/placeholder/150/150',
-          verified: true,
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        'owner@quickcourt.com': {
-          id: 2,
-          email: 'owner@quickcourt.com',
-          name: 'Jane Smith',
-          role: 'owner',
-          avatar: '/api/placeholder/150/150',
-          verified: true,
-        },
-        'admin@quickcourt.com': {
-          id: 3,
-          email: 'admin@quickcourt.com',
-          name: 'Admin User',
-          role: 'admin',
-          avatar: '/api/placeholder/150/150',
-          verified: true,
-        },
-      };
+        body: JSON.stringify({ email, password }),
+      });
 
-      const user = mockUsers[email];
-      if (user && password === 'password123') {
-        localStorage.setItem('quickcourt_user', JSON.stringify(user));
-        dispatch({ type: 'LOGIN_SUCCESS', payload: user });
-        return user;
-      } else {
-        throw new Error('Invalid email or password');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed');
       }
+
+      const { token, user } = data;
+      
+      localStorage.setItem('quickcourt_user', JSON.stringify(user));
+      localStorage.setItem('quickcourt_token', token);
+      
+      dispatch({ type: 'LOGIN_SUCCESS', payload: user });
+      return user;
     } catch (error) {
       dispatch({ type: 'LOGIN_FAILURE', payload: error.message });
       throw error;
@@ -125,23 +111,28 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: 'LOGIN_START' });
     
     try {
-      // Mock signup - in real app, this would be an API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const newUser = {
-        id: Date.now(),
-        email: userData.email,
-        name: userData.name,
-        role: userData.role || 'user',
-        avatar: userData.avatar || '/api/placeholder/150/150',
-        verified: false, // Will need OTP verification
-      };
+      const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fullname: userData.name,
+          email: userData.email,
+          password: userData.password,
+          confirmPassword: userData.confirmPassword,
+          role: userData.role === 'owner' ? 'facility_owner' : 'user',
+        }),
+      });
 
-      // For demo, auto-verify the user
-      newUser.verified = true;
-      localStorage.setItem('quickcourt_user', JSON.stringify(newUser));
-      dispatch({ type: 'LOGIN_SUCCESS', payload: newUser });
-      return newUser;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Signup failed');
+      }
+
+      // After successful signup, automatically log in
+      return await login(userData.email, userData.password);
     } catch (error) {
       dispatch({ type: 'LOGIN_FAILURE', payload: error.message });
       throw error;
@@ -150,6 +141,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('quickcourt_user');
+    localStorage.removeItem('quickcourt_token');
     dispatch({ type: 'LOGOUT' });
   };
 

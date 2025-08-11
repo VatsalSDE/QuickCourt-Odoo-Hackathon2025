@@ -81,7 +81,7 @@ const Login = () => {
     
     try {
       await login(formData.email, formData.password);
-      navigate(from, { replace: true });
+      navigate('/app');
     } catch (err) {
       console.error('Login failed:', err);
     }
