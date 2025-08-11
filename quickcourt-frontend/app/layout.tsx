@@ -1,12 +1,13 @@
 import type { Metadata } from 'next'
 import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
+import { MapPin } from 'lucide-react'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.dev',
+  title: 'QuickCourt',
+  description: 'Created by 4 Developers',
+  icons: 'MapPin'
 }
 
 export default function RootLayout({
