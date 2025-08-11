@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState , useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -11,6 +11,49 @@ export default function BookingPage() {
   const [selectedDate, setSelectedDate] = useState("")
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("")
   const [bookingStep, setBookingStep] = useState(1) // 1: selection, 2: confirmation, 3: payment, 4: success
+  const [paymentDetails, setPaymentDetails] = useState(null)
+
+  useEffect(() => {
+    if (bookingStep === 3 && !window.Razorpay) {
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, [bookingStep]);
+
+  const handlePayment = async () => {
+    const res = await fetch("/api/create-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        amount: getFinalTotal(),
+      }),
+    });
+    const order = await res.json();
+
+    const options = {
+      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      amount: order.amount,
+      currency: order.currency,
+      name: "QuickCourt",
+      description: "Court Slot Booking",
+      order_id: order.id,
+      handler: function (response) {
+        // Show payment details in your success UI
+        setPaymentDetails(response); // Save payment info to state
+        setBookingStep(4);
+      },
+      prefill: {
+        name: "Customer Name",
+        email: "customer@email.com",
+        contact: "9999999999",
+      },
+      theme: { color: "#2563eb" },
+    };
+    const rzp = new window.Razorpay(options);
+    rzp.open();
+  };
 
   const venue = {
     name: "Elite Sports Complex",
@@ -68,7 +111,7 @@ export default function BookingPage() {
     setBookingStep(3)
   }
 
-  const handlePayment = () => {
+  const handlePaymentt = () => {
     // Simulate payment processing
     setTimeout(() => {
       setBookingStep(4)
@@ -98,6 +141,25 @@ export default function BookingPage() {
             <p className="text-gray-600 mb-6">
               Your court has been successfully booked. You will receive a confirmation email shortly.
             </p>
+            
+            {/* Add Razorpay Payment Details here */}
+            {paymentDetails && (
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <h3 className="font-semibold mb-2">Payment Details</h3>
+                <div className="text-sm space-y-1">
+                  <p>
+                    <strong>Payment ID:</strong> {paymentDetails.razorpay_payment_id}
+                  </p>
+                  <p>
+                    <strong>Order ID:</strong> {paymentDetails.razorpay_order_id}
+                  </p>
+                </div>
+                <div className="text-green-600 font-bold mt-2">
+                  Payment Successful via Razorpay!
+                </div>
+              </div>
+            )}
+
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
               <h3 className="font-semibold mb-2">Booking Details</h3>
               <div className="text-sm space-y-1">
@@ -153,40 +215,9 @@ export default function BookingPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Card Number</label>
-                      <input
-                        type="text"
-                        placeholder="1234 5678 9012 3456"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
-                        <input
-                          type="text"
-                          placeholder="MM/YY"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">CVV</label>
-                        <input
-                          type="text"
-                          placeholder="123"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Cardholder Name</label>
-                      <input
-                        type="text"
-                        placeholder="John Doe"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
+                    <p className="text-gray-600">
+                      You will be redirected to Razorpay secure payment gateway.
+                    </p>
                   </div>
                 </CardContent>
               </Card>
