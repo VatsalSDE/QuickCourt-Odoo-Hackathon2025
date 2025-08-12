@@ -1,76 +1,83 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar } from "@/components/ui/calendar"
-import { Clock, Settings, CheckCircle, XCircle, CalendarIcon, Wrench } from "lucide-react"
+import { Clock, Settings, CheckCircle, XCircle, CalendarIcon, Wrench, Loader2, RefreshCw, AlertCircle } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import MaintenanceModal from "@/components/MaintenanceModal"
+import BulkActionsModal from "@/components/BulkActionsModal"
 
 export default function TimeSlotsPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [selectedCourt, setSelectedCourt] = useState("all")
   const [selectedFacility, setSelectedFacility] = useState("all")
+  const [courts, setCourts] = useState([])
+  const [facilities, setFacilities] = useState([])
+  const [timeSlots, setTimeSlots] = useState([])
+  const [timeSlotData, setTimeSlotData] = useState({})
+  const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [showMaintenanceModal, setShowMaintenanceModal] = useState(false)
+  const [showBulkActionsModal, setShowBulkActionsModal] = useState(false)
+  const [selectedCourtForMaintenance, setSelectedCourtForMaintenance] = useState(null)
+  const [isUpdatingSlot, setIsUpdatingSlot] = useState(false)
 
-  const courts = [
-    { id: 1, name: "Badminton Court A1", facility: "Elite Sports Complex" },
-    { id: 2, name: "Badminton Court A2", facility: "Elite Sports Complex" },
-    { id: 3, name: "Tennis Court 1", facility: "Elite Sports Complex" },
-    { id: 4, name: "Football Ground 1", facility: "Green Turf Arena" },
-    { id: 5, name: "Cricket Ground 1", facility: "Green Turf Arena" },
-  ]
+  const { user } = useAuth()
 
-  const facilities = ["Elite Sports Complex", "Green Turf Arena"]
+  // Fetch time slots data
+  useEffect(() => {
+    if (user) {
+      fetchTimeSlots()
+    }
+  }, [user, selectedDate, selectedFacility, selectedCourt])
 
-  const timeSlots = [
-    "06:00",
-    "07:00",
-    "08:00",
-    "09:00",
-    "10:00",
-    "11:00",
-    "12:00",
-    "13:00",
-    "14:00",
-    "15:00",
-    "16:00",
-    "17:00",
-    "18:00",
-    "19:00",
-    "20:00",
-    "21:00",
-    "22:00",
-    "23:00",
-  ]
+  const fetchTimeSlots = async () => {
+    try {
+      setIsLoading(true)
+      const params = new URLSearchParams({
+        userId: user?._id || user?.id,
+        date: selectedDate.toISOString(),
+        facilityId: selectedFacility,
+        courtId: selectedCourt
+      })
 
-  // Mock data for time slot availability
-  const slotData = {
-    1: {
-      // Badminton Court A1
-      "06:00": { status: "available", booking: null },
-      "07:00": { status: "booked", booking: { user: "John Doe", id: "B001" } },
-      "08:00": { status: "booked", booking: { user: "Sarah Wilson", id: "B002" } },
-      "09:00": { status: "available", booking: null },
-      "10:00": { status: "maintenance", booking: null },
-      "11:00": { status: "maintenance", booking: null },
-      "12:00": { status: "available", booking: null },
-      "13:00": { status: "available", booking: null },
-      "14:00": { status: "booked", booking: { user: "Mike Johnson", id: "B003" } },
-      "15:00": { status: "available", booking: null },
-      "16:00": { status: "available", booking: null },
-      "17:00": { status: "booked", booking: { user: "Emma Davis", id: "B004" } },
-      "18:00": { status: "booked", booking: { user: "Alex Brown", id: "B005" } },
-      "19:00": { status: "booked", booking: { user: "Lisa Chen", id: "B006" } },
-      "20:00": { status: "available", booking: null },
-      "21:00": { status: "available", booking: null },
-      "22:00": { status: "available", booking: null },
-      "23:00": { status: "available", booking: null },
-    },
+      const response = await fetch(`/api/owner/time-slots?${params}`)
+      if (response.ok) {
+        const data = await response.json()
+        setCourts(data.courts || [])
+        setFacilities(data.facilities || [])
+        setTimeSlots(data.timeSlots || [])
+        setTimeSlotData(data.timeSlotData || {})
+      } else {
+        console.error('Failed to fetch time slots')
+        setCourts([])
+        setFacilities([])
+        setTimeSlots([])
+        setTimeSlotData({})
+      }
+    } catch (error) {
+      console.error('Error fetching time slots:', error)
+      setCourts([])
+      setFacilities([])
+      setTimeSlots([])
+      setTimeSlotData({})
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    await fetchTimeSlots()
+    setIsRefreshing(false)
   }
 
   const getSlotStatus = (courtId, time) => {
-    return slotData[courtId]?.[time] || { status: "available", booking: null }
+    return timeSlotData[courtId]?.[time] || { status: "available", booking: null }
   }
 
   const getStatusColor = (status) => {
@@ -103,16 +110,92 @@ export default function TimeSlotsPage() {
     }
   }
 
-  const toggleSlotStatus = (courtId, time, currentStatus) => {
-    console.log("Toggling slot:", courtId, time, currentStatus)
-    // Handle status toggle logic
+  const toggleSlotStatus = async (courtId, time, currentStatus) => {
+    if (currentStatus === 'booked') {
+      alert('Cannot modify booked time slots')
+      return
+    }
+
+    if (!confirm(`Are you sure you want to ${currentStatus === 'available' ? 'block' : 'unblock'} this time slot?`)) {
+      return
+    }
+
+    try {
+      setIsUpdatingSlot(true)
+      
+      const newStatus = currentStatus === 'available' ? 'blocked' : 'available'
+      const reason = currentStatus === 'available' ? 'Blocked by owner' : ''
+
+      const response = await fetch('/api/owner/time-slots/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user?._id || user?.id,
+          courtId,
+          time,
+          date: selectedDate,
+          status: newStatus,
+          reason
+        })
+      })
+
+      if (response.ok) {
+        // Update local state
+        setTimeSlotData(prev => ({
+          ...prev,
+          [courtId]: {
+            ...prev[courtId],
+            [time]: {
+              status: newStatus,
+              booking: null
+            }
+          }
+        }))
+        alert(`Time slot ${newStatus === 'blocked' ? 'blocked' : 'unblocked'} successfully`)
+      } else {
+        const errorData = await response.json()
+        alert(errorData.error || 'Failed to update time slot')
+      }
+    } catch (error) {
+      console.error('Error updating time slot:', error)
+      alert('Failed to update time slot. Please try again.')
+    } finally {
+      setIsUpdatingSlot(false)
+    }
+  }
+
+  const handleScheduleMaintenance = (court) => {
+    setSelectedCourtForMaintenance(court)
+    setShowMaintenanceModal(true)
+  }
+
+  const handleMaintenanceScheduled = () => {
+    fetchTimeSlots()
+  }
+
+  const handleBulkActionCompleted = () => {
+    fetchTimeSlots()
   }
 
   const filteredCourts = courts.filter((court) => {
-    const matchesFacility = selectedFacility === "all" || court.facility === selectedFacility
-    const matchesCourt = selectedCourt === "all" || court.id.toString() === selectedCourt
+    const matchesFacility = selectedFacility === "all" || court.facilityId === selectedFacility
+    const matchesCourt = selectedCourt === "all" || court.id === selectedCourt
     return matchesFacility && matchesCourt
   })
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-16 w-16 animate-spin text-blue-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Loading Time Slots</h2>
+          <p className="text-gray-600">Please wait while we fetch your time slots...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -156,8 +239,8 @@ export default function TimeSlotsPage() {
                     <SelectContent>
                       <SelectItem value="all">All Facilities</SelectItem>
                       {facilities.map((facility) => (
-                        <SelectItem key={facility} value={facility}>
-                          {facility}
+                        <SelectItem key={facility.id} value={facility.id}>
+                          {facility.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -173,7 +256,7 @@ export default function TimeSlotsPage() {
                     <SelectContent>
                       <SelectItem value="all">All Courts</SelectItem>
                       {courts.map((court) => (
-                        <SelectItem key={court.id} value={court.id.toString()}>
+                        <SelectItem key={court.id} value={court.id}>
                           {court.name}
                         </SelectItem>
                       ))}
@@ -224,13 +307,30 @@ export default function TimeSlotsPage() {
                 <div className="flex items-center justify-between">
                   <CardTitle>Time Slots for {selectedDate?.toLocaleDateString()}</CardTitle>
                   <div className="flex space-x-2">
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setShowBulkActionsModal(true)}
+                    >
                       <Settings className="h-4 w-4 mr-2" />
                       Bulk Actions
                     </Button>
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setShowMaintenanceModal(true)}
+                    >
                       <Wrench className="h-4 w-4 mr-2" />
                       Schedule Maintenance
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleRefresh}
+                      disabled={isRefreshing}
+                    >
+                      <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                      Refresh
                     </Button>
                   </div>
                 </div>
@@ -251,10 +351,20 @@ export default function TimeSlotsPage() {
                             <h3 className="font-semibold text-lg">{court.name}</h3>
                             <p className="text-sm text-gray-600">{court.facility}</p>
                           </div>
-                          <Button variant="outline" size="sm">
-                            <Settings className="h-4 w-4 mr-2" />
-                            Configure
-                          </Button>
+                          <div className="flex space-x-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleScheduleMaintenance(court)}
+                            >
+                              <Wrench className="h-4 w-4 mr-2" />
+                              Schedule Maintenance
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              <Settings className="h-4 w-4 mr-2" />
+                              Configure
+                            </Button>
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-2">
@@ -264,8 +374,10 @@ export default function TimeSlotsPage() {
                               <button
                                 key={time}
                                 onClick={() => toggleSlotStatus(court.id, time, slot.status)}
-                                className={`p-2 rounded-lg border text-xs font-medium transition-all hover:scale-105 ${getStatusColor(slot.status)}`}
-                                disabled={slot.status === "booked"}
+                                disabled={slot.status === "booked" || isUpdatingSlot}
+                                className={`p-2 rounded-lg border text-xs font-medium transition-all hover:scale-105 ${getStatusColor(slot.status)} ${
+                                  slot.status === "booked" || isUpdatingSlot ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md'
+                                }`}
                               >
                                 <div className="flex flex-col items-center space-y-1">
                                   {getStatusIcon(slot.status)}
@@ -322,6 +434,24 @@ export default function TimeSlotsPage() {
             </Card>
           </div>
         </div>
+
+        {/* Modals */}
+        <MaintenanceModal
+          isOpen={showMaintenanceModal}
+          onClose={() => setShowMaintenanceModal(false)}
+          court={selectedCourtForMaintenance}
+          selectedDate={selectedDate}
+          onMaintenanceScheduled={handleMaintenanceScheduled}
+        />
+
+        <BulkActionsModal
+          isOpen={showBulkActionsModal}
+          onClose={() => setShowBulkActionsModal(false)}
+          courts={filteredCourts}
+          timeSlots={timeSlots}
+          selectedDate={selectedDate}
+          onBulkActionCompleted={handleBulkActionCompleted}
+        />
       </div>
     </div>
   )

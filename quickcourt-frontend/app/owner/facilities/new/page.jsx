@@ -8,7 +8,9 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import { Upload, X, Wifi, Car, Coffee, Users, Shield, Dumbbell } from "lucide-react"
+import { Upload, X, Wifi, Car, Coffee, Users, Shield, Dumbbell, Loader2 } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import { useRouter } from "next/navigation"
 
 export default function NewFacilityPage() {
   const [formData, setFormData] = useState({
@@ -26,6 +28,10 @@ export default function NewFacilityPage() {
 
   const [selectedSports, setSelectedSports] = useState([])
   const [selectedAmenities, setSelectedAmenities] = useState([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  const { user } = useAuth()
+  const router = useRouter()
 
   const availableSports = [
     "Badminton",
@@ -93,15 +99,61 @@ export default function NewFacilityPage() {
     }))
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    const finalData = {
-      ...formData,
-      sports: selectedSports,
-      amenities: selectedAmenities,
+    
+    if (!user) {
+      alert('Please login to create a facility')
+      return
     }
-    console.log("Facility data:", finalData)
-    // Handle form submission
+
+    if (!formData.name || !formData.location) {
+      alert('Please fill in all required fields')
+      return
+    }
+
+    try {
+      setIsSubmitting(true)
+      
+      // Convert amenities IDs to names
+      const amenityNames = selectedAmenities.map(amenityId => {
+        const amenity = availableAmenities.find(a => a.id === amenityId)
+        return amenity ? amenity.name : amenityId
+      })
+
+      const facilityData = {
+        name: formData.name,
+        location: formData.location,
+        description: formData.description,
+        sports: selectedSports,
+        amenities: amenityNames,
+        operatingHours: formData.operatingHours,
+        images: formData.images.map(img => img.name), // For now, just store image names
+        userId: user._id || user.id
+      }
+
+      const response = await fetch('/api/owner/facilities/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(facilityData)
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        alert('Facility created successfully!')
+        router.push('/owner/facilities')
+      } else {
+        const errorData = await response.json()
+        alert(errorData.message || 'Failed to create facility')
+      }
+    } catch (error) {
+      console.error('Error creating facility:', error)
+      alert('Failed to create facility. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -352,11 +404,28 @@ export default function NewFacilityPage() {
               <Card>
                 <CardContent className="pt-6">
                   <div className="space-y-3">
-                    <Button type="submit" className="w-full">
-                      Create Facility
+                    <Button 
+                      type="submit" 
+                      className="w-full"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        'Create Facility'
+                      )}
                     </Button>
-                    <Button type="button" variant="outline" className="w-full bg-transparent">
-                      <a href="/owner/facilities">Cancel</a>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      className="w-full bg-transparent"
+                      onClick={() => router.push('/owner/facilities')}
+                      disabled={isSubmitting}
+                    >
+                      Cancel
                     </Button>
                   </div>
                 </CardContent>

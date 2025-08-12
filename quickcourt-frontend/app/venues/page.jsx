@@ -119,14 +119,14 @@ export default function VenuesPage() {
       filtered = filtered.filter(
         (venue) =>
           venue.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          venue.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (venue.address && venue.address.toLowerCase().includes(searchQuery.toLowerCase())) ||
           venue.sports.some((sport) => sport.toLowerCase().includes(searchQuery.toLowerCase())),
       )
     }
 
     // Location filter
     if (selectedLocation) {
-      filtered = filtered.filter((venue) => venue.location.toLowerCase().includes(selectedLocation.toLowerCase()))
+      filtered = filtered.filter((venue) => venue.address && venue.address.toLowerCase().includes(selectedLocation.toLowerCase()))
     }
 
     // Sport filter
@@ -308,7 +308,7 @@ export default function VenuesPage() {
                 </h3>
                 <div className="flex items-center text-gray-600 mb-3">
                   <MapPin className="h-4 w-4 mr-1" />
-                  <span className="text-sm">{venue.location}</span>
+                                          <span className="text-sm">{venue.address || 'Location not specified'}</span>
                 </div>
                 <div className="flex flex-wrap gap-1 mb-3">
                   {venue.sports.map((sport) => (

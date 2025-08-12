@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,12 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Clock, DollarSign } from "lucide-react"
+import { MapPin, Clock, DollarSign, Loader2 } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import { useRouter } from "next/navigation"
 
 export default function NewCourtPage() {
   const [formData, setFormData] = useState({
     name: "",
-    facility: "",
+    venueId: "",
     sport: "",
     pricePerHour: "",
     description: "",
@@ -33,10 +35,12 @@ export default function NewCourtPage() {
     },
   })
 
-  const facilities = [
-    { id: 1, name: "Elite Sports Complex" },
-    { id: 2, name: "Green Turf Arena" },
-  ]
+  const [facilities, setFacilities] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  const { user } = useAuth()
+  const router = useRouter()
 
   const sports = ["Badminton", "Tennis", "Table Tennis", "Football", "Cricket", "Basketball", "Volleyball", "Squash"]
 
@@ -49,6 +53,32 @@ export default function NewCourtPage() {
     { key: "saturday", label: "Saturday" },
     { key: "sunday", label: "Sunday" },
   ]
+
+  // Fetch facilities data
+  useEffect(() => {
+    if (user) {
+      fetchFacilities()
+    }
+  }, [user])
+
+  const fetchFacilities = async () => {
+    try {
+      setIsLoading(true)
+      const response = await fetch(`/api/owner/facilities?userId=${user?._id || user?.id}`)
+      if (response.ok) {
+        const data = await response.json()
+        setFacilities(data.facilities || [])
+      } else {
+        console.error('Failed to fetch facilities')
+        setFacilities([])
+      }
+    } catch (error) {
+      console.error('Error fetching facilities:', error)
+      setFacilities([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -82,10 +112,67 @@ export default function NewCourtPage() {
     }))
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    console.log("Court data:", formData)
-    // Handle form submission
+    
+    if (!user) {
+      alert('Please login to create a court')
+      return
+    }
+
+    if (!formData.name || !formData.venueId || !formData.sport || !formData.pricePerHour) {
+      alert('Please fill in all required fields')
+      return
+    }
+
+    try {
+      setIsSubmitting(true)
+      
+      const courtData = {
+        name: formData.name,
+        venueId: formData.venueId,
+        sport: formData.sport,
+        pricePerHour: formData.pricePerHour,
+        description: formData.description,
+        operatingHours: formData.operatingHours,
+        weeklySchedule: formData.weeklySchedule,
+        userId: user._id || user.id
+      }
+
+      const response = await fetch('/api/owner/courts/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(courtData)
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        alert('Court created successfully!')
+        router.push('/owner/courts')
+      } else {
+        const errorData = await response.json()
+        alert(errorData.message || 'Failed to create court')
+      }
+    } catch (error) {
+      console.error('Error creating court:', error)
+      alert('Failed to create court. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-16 w-16 animate-spin text-blue-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Loading Facilities</h2>
+          <p className="text-gray-600">Please wait while we fetch your facilities...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -111,17 +198,17 @@ export default function NewCourtPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label htmlFor="facility">Select Facility *</Label>
+                    <Label htmlFor="venueId">Select Facility *</Label>
                     <Select
-                      value={formData.facility}
-                      onValueChange={(value) => setFormData((prev) => ({ ...prev, facility: value }))}
+                      value={formData.venueId}
+                      onValueChange={(value) => setFormData((prev) => ({ ...prev, venueId: value }))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Choose a facility" />
                       </SelectTrigger>
                       <SelectContent>
                         {facilities.map((facility) => (
-                          <SelectItem key={facility.id} value={facility.name}>
+                          <SelectItem key={facility._id} value={facility._id}>
                             {facility.name}
                           </SelectItem>
                         ))}
@@ -295,7 +382,9 @@ export default function NewCourtPage() {
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Facility</p>
-                      <p className="font-medium">{formData.facility || "Select facility"}</p>
+                      <p className="font-medium">
+                        {facilities.find(f => f._id === formData.venueId)?.name || "Select facility"}
+                      </p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Sport</p>
@@ -321,11 +410,28 @@ export default function NewCourtPage() {
               <Card>
                 <CardContent className="pt-6">
                   <div className="space-y-3">
-                    <Button type="submit" className="w-full">
-                      Create Court
+                    <Button 
+                      type="submit" 
+                      className="w-full"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        'Create Court'
+                      )}
                     </Button>
-                    <Button type="button" variant="outline" className="w-full bg-transparent">
-                      <a href="/owner/courts">Cancel</a>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      className="w-full bg-transparent"
+                      onClick={() => router.push('/owner/courts')}
+                      disabled={isSubmitting}
+                    >
+                      Cancel
                     </Button>
                   </div>
                 </CardContent>

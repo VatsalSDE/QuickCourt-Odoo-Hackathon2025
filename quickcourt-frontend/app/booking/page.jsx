@@ -663,7 +663,7 @@ export default function BookingPage() {
                       <MapPin className="h-5 w-5 text-gray-400 mt-1" />
                       <div>
                         <h3 className="font-semibold">{venue.name}</h3>
-                        <p className="text-gray-600">{venue.location}</p>
+                        <p className="text-gray-600">{venue.address || 'Location not specified'}</p>
                       </div>
                     </div>
 
@@ -795,7 +795,7 @@ export default function BookingPage() {
           <div className="flex items-center mt-2 text-gray-600">
             <MapPin className="h-4 w-4 mr-1" />
             <span>
-              {venue.name} - {venue.location}
+                              {venue.name} - {venue.address || 'Location not specified'}
             </span>
           </div>
         </div>
@@ -967,7 +967,7 @@ export default function BookingPage() {
                   <div>
                     <h4 className="font-medium text-gray-900">Venue</h4>
                     <p className="text-sm text-gray-600">{venue.name}</p>
-                    <p className="text-sm text-gray-600">{venue.location}</p>
+                    <p className="text-sm text-gray-600">{venue.address || 'Location not specified'}</p>
                   </div>
 
                   {selectedCourt && (

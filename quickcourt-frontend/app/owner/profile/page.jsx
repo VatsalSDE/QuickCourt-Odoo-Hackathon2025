@@ -383,7 +383,7 @@ export default function OwnerProfilePage() {
                             <h3 className="text-xl font-semibold text-gray-900">{facility.name}</h3>
                             <div className="flex items-center text-gray-600 mt-1">
                               <MapPin className="h-4 w-4 mr-1" />
-                              <span className="text-sm">{facility.location}</span>
+                              <span className="text-sm">{facility.address || 'Location not specified'}</span>
                             </div>
                           </div>
                           <div className="flex items-center space-x-2">

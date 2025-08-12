@@ -1,118 +1,122 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Filter, Calendar, Clock, User, MapPin, Phone, Download, Eye, X } from "lucide-react"
+import { Search, Filter, Calendar, Clock, User, MapPin, Phone, Download, Eye, X, Loader2, RefreshCw } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import BookingCalendar from "@/components/BookingCalendar"
 
 export default function BookingOverviewPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [dateFilter, setDateFilter] = useState("all")
   const [facilityFilter, setFacilityFilter] = useState("all")
+  const [viewMode, setViewMode] = useState("list") // "list" or "calendar"
+  const [bookings, setBookings] = useState([])
+  const [facilities, setFacilities] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isExporting, setIsExporting] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const bookings = [
-    {
-      id: "B001",
-      user: {
-        name: "John Doe",
-        email: "john.doe@email.com",
-        phone: "+91 98765 43210",
-      },
-      facility: "Elite Sports Complex",
-      court: "Badminton Court A1",
-      sport: "Badminton",
-      date: "2024-01-20",
-      time: "18:00 - 19:00",
-      status: "Confirmed",
-      amount: 600,
-      bookingDate: "2024-01-15",
-      paymentStatus: "Paid",
-    },
-    {
-      id: "B002",
-      user: {
-        name: "Sarah Wilson",
-        email: "sarah.wilson@email.com",
-        phone: "+91 98765 43211",
-      },
-      facility: "Elite Sports Complex",
-      court: "Badminton Court A2",
-      sport: "Badminton",
-      date: "2024-01-20",
-      time: "19:00 - 20:00",
-      status: "Confirmed",
-      amount: 600,
-      bookingDate: "2024-01-16",
-      paymentStatus: "Paid",
-    },
-    {
-      id: "B003",
-      user: {
-        name: "Mike Johnson",
-        email: "mike.johnson@email.com",
-        phone: "+91 98765 43212",
-      },
-      facility: "Green Turf Arena",
-      court: "Football Ground 1",
-      sport: "Football",
-      date: "2024-01-19",
-      time: "16:00 - 17:00",
-      status: "Completed",
-      amount: 1000,
-      bookingDate: "2024-01-14",
-      paymentStatus: "Paid",
-    },
-    {
-      id: "B004",
-      user: {
-        name: "Emma Davis",
-        email: "emma.davis@email.com",
-        phone: "+91 98765 43213",
-      },
-      facility: "Elite Sports Complex",
-      court: "Tennis Court 1",
-      sport: "Tennis",
-      date: "2024-01-18",
-      time: "07:00 - 08:00",
-      status: "Completed",
-      amount: 800,
-      bookingDate: "2024-01-13",
-      paymentStatus: "Paid",
-    },
-    {
-      id: "B005",
-      user: {
-        name: "Alex Brown",
-        email: "alex.brown@email.com",
-        phone: "+91 98765 43214",
-      },
-      facility: "Green Turf Arena",
-      court: "Cricket Ground 1",
-      sport: "Cricket",
-      date: "2024-01-17",
-      time: "09:00 - 11:00",
-      status: "Cancelled",
-      amount: 1200,
-      bookingDate: "2024-01-12",
-      paymentStatus: "Refunded",
-    },
-  ]
+  const { user } = useAuth()
 
-  const facilities = ["Elite Sports Complex", "Green Turf Arena"]
+  // Fetch bookings data
+  useEffect(() => {
+    if (user) {
+      fetchBookings()
+    }
+  }, [user, searchQuery, statusFilter, dateFilter, facilityFilter])
+
+  const fetchBookings = async () => {
+    try {
+      setIsLoading(true)
+      const params = new URLSearchParams({
+        userId: user?._id || user?.id,
+        searchQuery,
+        status: statusFilter,
+        dateFilter,
+        facility: facilityFilter
+      })
+
+      const response = await fetch(`/api/owner/bookings?${params}`)
+      if (response.ok) {
+        const data = await response.json()
+        setBookings(data.bookings || [])
+        setFacilities(data.facilities || [])
+      } else {
+        console.error('Failed to fetch bookings')
+        setBookings([])
+        setFacilities([])
+      }
+    } catch (error) {
+      console.error('Error fetching bookings:', error)
+      setBookings([])
+      setFacilities([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    await fetchBookings()
+    setIsRefreshing(false)
+  }
+
+  const handleExport = async () => {
+    try {
+      setIsExporting(true)
+      
+      const response = await fetch('/api/owner/bookings/export', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user?._id || user?.id,
+          filters: {
+            searchQuery,
+            status: statusFilter,
+            dateFilter,
+            facility: facilityFilter
+          }
+        })
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `bookings-export-${new Date().toISOString().split('T')[0]}.csv`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      } else {
+        alert('Failed to export bookings')
+      }
+    } catch (error) {
+      console.error('Error exporting bookings:', error)
+      alert('Failed to export bookings')
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   const getStatusColor = (status) => {
     switch (status) {
-      case "Confirmed":
+      case "confirmed":
         return "bg-green-100 text-green-800 border-green-200"
-      case "Completed":
+      case "completed":
         return "bg-blue-100 text-blue-800 border-blue-200"
-      case "Cancelled":
+      case "cancelled":
         return "bg-red-100 text-red-800 border-red-200"
-      case "Pending":
+      case "pending":
         return "bg-yellow-100 text-yellow-800 border-yellow-200"
       default:
         return "bg-gray-100 text-gray-800 border-gray-200"
@@ -121,56 +125,34 @@ export default function BookingOverviewPage() {
 
   const getPaymentStatusColor = (status) => {
     switch (status) {
-      case "Paid":
+      case "paid":
         return "bg-green-100 text-green-800"
-      case "Pending":
+      case "pending":
         return "bg-yellow-100 text-yellow-800"
-      case "Refunded":
+      case "refunded":
         return "bg-blue-100 text-blue-800"
-      case "Failed":
+      case "failed":
         return "bg-red-100 text-red-800"
       default:
         return "bg-gray-100 text-gray-800"
     }
   }
 
-  const filteredBookings = bookings.filter((booking) => {
-    const matchesSearch =
-      booking.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      booking.court.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      booking.id.toLowerCase().includes(searchQuery.toLowerCase())
+  const totalRevenue = bookings
+    .filter((b) => b.paymentStatus === "paid")
+    .reduce((sum, booking) => sum + (booking.amount || 0), 0)
 
-    const matchesStatus = statusFilter === "all" || booking.status === statusFilter
-    const matchesFacility = facilityFilter === "all" || booking.facility === facilityFilter
-
-    const matchesDate =
-      dateFilter === "all" ||
-      (() => {
-        const bookingDate = new Date(booking.date)
-        const today = new Date()
-
-        switch (dateFilter) {
-          case "today":
-            return bookingDate.toDateString() === today.toDateString()
-          case "upcoming":
-            return bookingDate >= today
-          case "past":
-            return bookingDate < today
-          case "this-week":
-            const weekFromNow = new Date()
-            weekFromNow.setDate(today.getDate() + 7)
-            return bookingDate >= today && bookingDate <= weekFromNow
-          default:
-            return true
-        }
-      })()
-
-    return matchesSearch && matchesStatus && matchesFacility && matchesDate
-  })
-
-  const totalRevenue = filteredBookings
-    .filter((b) => b.paymentStatus === "Paid")
-    .reduce((sum, booking) => sum + booking.amount, 0)
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-16 w-16 animate-spin text-blue-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Loading Bookings</h2>
+          <p className="text-gray-600">Please wait while we fetch your bookings...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -182,13 +164,32 @@ export default function BookingOverviewPage() {
             <p className="text-gray-600 mt-2">Manage and track all bookings across your facilities</p>
           </div>
           <div className="mt-4 md:mt-0 flex space-x-2">
-            <Button variant="outline">
-              <Download className="h-4 w-4 mr-2" />
-              Export
+            <Button 
+              variant="outline" 
+              onClick={handleExport}
+              disabled={isExporting}
+            >
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              {isExporting ? 'Exporting...' : 'Export'}
             </Button>
-            <Button>
+            <Button 
+              variant={viewMode === "calendar" ? "default" : "outline"}
+              onClick={() => setViewMode(viewMode === "list" ? "calendar" : "list")}
+            >
               <Calendar className="h-4 w-4 mr-2" />
-              View Calendar
+              {viewMode === "list" ? "View Calendar" : "View List"}
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Refresh
             </Button>
           </div>
         </div>
@@ -200,7 +201,7 @@ export default function BookingOverviewPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Total Bookings</p>
-                  <p className="text-3xl font-bold text-gray-900">{filteredBookings.length}</p>
+                  <p className="text-3xl font-bold text-gray-900">{bookings.length}</p>
                 </div>
                 <Calendar className="h-8 w-8 text-blue-600" />
               </div>
@@ -213,7 +214,7 @@ export default function BookingOverviewPage() {
                 <div>
                   <p className="text-sm font-medium text-gray-600">Confirmed</p>
                   <p className="text-3xl font-bold text-green-600">
-                    {filteredBookings.filter((b) => b.status === "Confirmed").length}
+                    {bookings.filter((b) => b.status === "confirmed").length}
                   </p>
                 </div>
                 <User className="h-8 w-8 text-green-600" />
@@ -227,7 +228,7 @@ export default function BookingOverviewPage() {
                 <div>
                   <p className="text-sm font-medium text-gray-600">Completed</p>
                   <p className="text-3xl font-bold text-blue-600">
-                    {filteredBookings.filter((b) => b.status === "Completed").length}
+                    {bookings.filter((b) => b.status === "completed").length}
                   </p>
                 </div>
                 <Clock className="h-8 w-8 text-blue-600" />
@@ -268,10 +269,10 @@ export default function BookingOverviewPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="Confirmed">Confirmed</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                  <SelectItem value="Cancelled">Cancelled</SelectItem>
-                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -282,8 +283,8 @@ export default function BookingOverviewPage() {
                 <SelectContent>
                   <SelectItem value="all">All Facilities</SelectItem>
                   {facilities.map((facility) => (
-                    <SelectItem key={facility} value={facility}>
-                      {facility}
+                    <SelectItem key={facility._id} value={facility._id}>
+                      {facility.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -318,140 +319,147 @@ export default function BookingOverviewPage() {
           </CardContent>
         </Card>
 
-        {/* Bookings List */}
-        <div className="space-y-4">
-          {filteredBookings.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-12">
-                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No bookings found</h3>
-                <p className="text-gray-600 mb-4">
-                  {searchQuery || statusFilter !== "all" || facilityFilter !== "all" || dateFilter !== "all"
-                    ? "Try adjusting your filters to see more results."
-                    : "No bookings have been made yet."}
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            filteredBookings.map((booking) => (
-              <Card key={booking.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-4">
+        {/* Content */}
+        {viewMode === "calendar" ? (
+          <BookingCalendar bookings={bookings} />
+        ) : (
+          <>
+            {/* Bookings List */}
+            <div className="space-y-4">
+              {bookings.length === 0 ? (
+                <Card>
+                  <CardContent className="text-center py-12">
+                    <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No bookings found</h3>
+                    <p className="text-gray-600 mb-4">
+                      {searchQuery || statusFilter !== "all" || facilityFilter !== "all" || dateFilter !== "all"
+                        ? "Try adjusting your filters to see more results."
+                        : "No bookings have been made yet."}
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                bookings.map((booking) => (
+                  <Card key={booking._id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between">
                         <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <h3 className="text-lg font-semibold text-gray-900">Booking #{booking.id}</h3>
-                            <Badge className={getStatusColor(booking.status)}>{booking.status}</Badge>
-                            <Badge className={getPaymentStatusColor(booking.paymentStatus)}>
-                              {booking.paymentStatus}
-                            </Badge>
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600">
-                            <div className="flex items-center">
-                              <User className="h-4 w-4 mr-2" />
-                              <div>
-                                <p className="font-medium text-gray-900">{booking.user.name}</p>
-                                <p>{booking.user.email}</p>
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-3 mb-2">
+                                <h3 className="text-lg font-semibold text-gray-900">Booking #{booking._id.toString().slice(-6)}</h3>
+                                <Badge className={getStatusColor(booking.status)}>{booking.status}</Badge>
+                                <Badge className={getPaymentStatusColor(booking.paymentStatus)}>
+                                  {booking.paymentStatus || 'pending'}
+                                </Badge>
                               </div>
-                            </div>
 
-                            <div className="flex items-center">
-                              <MapPin className="h-4 w-4 mr-2" />
-                              <div>
-                                <p className="font-medium text-gray-900">{booking.court}</p>
-                                <p>{booking.facility}</p>
-                              </div>
-                            </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600">
+                                <div className="flex items-center">
+                                  <User className="h-4 w-4 mr-2" />
+                                  <div>
+                                    <p className="font-medium text-gray-900">{booking.userDetails?.name || 'Unknown User'}</p>
+                                    <p>{booking.userDetails?.email || 'No email'}</p>
+                                  </div>
+                                </div>
 
-                            <div className="flex items-center">
-                              <Calendar className="h-4 w-4 mr-2" />
-                              <div>
-                                <p className="font-medium text-gray-900">{booking.date}</p>
-                                <p>{booking.time}</p>
-                              </div>
-                            </div>
+                                <div className="flex items-center">
+                                  <MapPin className="h-4 w-4 mr-2" />
+                                  <div>
+                                    <p className="font-medium text-gray-900">{booking.courtName || 'Unknown Court'}</p>
+                                    <p>{booking.venueName || 'Unknown Facility'}</p>
+                                  </div>
+                                </div>
 
-                            <div className="flex items-center">
-                              <Clock className="h-4 w-4 mr-2" />
-                              <div>
-                                <p className="font-medium text-gray-900">{booking.sport}</p>
-                                <p>Booked on {booking.bookingDate}</p>
+                                <div className="flex items-center">
+                                  <Calendar className="h-4 w-4 mr-2" />
+                                  <div>
+                                    <p className="font-medium text-gray-900">{booking.date}</p>
+                                    <p>{booking.startTime} - {booking.endTime}</p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center">
+                                  <Clock className="h-4 w-4 mr-2" />
+                                  <div>
+                                    <p className="font-medium text-gray-900">{booking.sport || 'Unknown Sport'}</p>
+                                    <p>Booked on {booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : 'Unknown'}</p>
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
 
-                    <div className="mt-4 lg:mt-0 lg:ml-6 flex flex-col lg:items-end">
-                      <div className="text-2xl font-bold text-gray-900 mb-2">₹{booking.amount}</div>
-                      <div className="flex space-x-2">
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4 mr-2" />
-                          View Details
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Phone className="h-4 w-4 mr-2" />
-                          Contact
-                        </Button>
-                        {booking.status === "Confirmed" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-red-600 hover:text-red-700 bg-transparent"
-                          >
-                            <X className="h-4 w-4 mr-2" />
-                            Cancel
-                          </Button>
-                        )}
+                        <div className="mt-4 lg:mt-0 lg:ml-6 flex flex-col lg:items-end">
+                          <div className="text-2xl font-bold text-gray-900 mb-2">₹{booking.amount || 0}</div>
+                          <div className="flex space-x-2">
+                            <Button variant="outline" size="sm">
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              <Phone className="h-4 w-4 mr-2" />
+                              Contact
+                            </Button>
+                            {booking.status === "confirmed" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700 bg-transparent"
+                              >
+                                <X className="h-4 w-4 mr-2" />
+                                Cancel
+                              </Button>
+                            )}
+                          </div>
+                        </div>
                       </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+
+            {/* Summary */}
+            {bookings.length > 0 && (
+              <Card className="mt-8">
+                <CardHeader>
+                  <CardTitle>Summary</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-900">{bookings.length}</div>
+                      <div className="text-sm text-gray-600">Total Bookings</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        {bookings.filter((b) => b.status === "confirmed").length}
+                      </div>
+                      <div className="text-sm text-gray-600">Confirmed</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-600">
+                        {bookings.filter((b) => b.status === "completed").length}
+                      </div>
+                      <div className="text-sm text-gray-600">Completed</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-red-600">
+                        {bookings.filter((b) => b.status === "cancelled").length}
+                      </div>
+                      <div className="text-sm text-gray-600">Cancelled</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">₹{totalRevenue.toLocaleString()}</div>
+                      <div className="text-sm text-gray-600">Total Revenue</div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-            ))
-          )}
-        </div>
-
-        {/* Summary */}
-        {filteredBookings.length > 0 && (
-          <Card className="mt-8">
-            <CardHeader>
-              <CardTitle>Summary</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-900">{filteredBookings.length}</div>
-                  <div className="text-sm text-gray-600">Total Bookings</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">
-                    {filteredBookings.filter((b) => b.status === "Confirmed").length}
-                  </div>
-                  <div className="text-sm text-gray-600">Confirmed</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {filteredBookings.filter((b) => b.status === "Completed").length}
-                  </div>
-                  <div className="text-sm text-gray-600">Completed</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-red-600">
-                    {filteredBookings.filter((b) => b.status === "Cancelled").length}
-                  </div>
-                  <div className="text-sm text-gray-600">Cancelled</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">₹{totalRevenue.toLocaleString()}</div>
-                  <div className="text-sm text-gray-600">Total Revenue</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            )}
+          </>
         )}
       </div>
     </div>

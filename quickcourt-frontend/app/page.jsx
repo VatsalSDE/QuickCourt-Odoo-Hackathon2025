@@ -227,7 +227,7 @@ export default function HomePage() {
                   </h3>
                   <div className="flex items-center text-gray-600 mb-3">
                     <MapPin className="h-4 w-4 mr-1" />
-                    <span className="text-sm">{venue.location}</span>
+                                            <span className="text-sm">{venue.address || 'Location not specified'}</span>
                   </div>
                   <div className="flex flex-wrap gap-1 mb-3">
                     {venue.sports.map((sport) => (
