@@ -46,6 +46,19 @@ export async function POST(request) {
       )
     }
 
+    // Check if email is verified
+    if (!user.emailVerified) {
+      await client.close()
+      return NextResponse.json(
+        { 
+          message: 'Please verify your email address before logging in.',
+          requiresVerification: true,
+          email: user.email
+        },
+        { status: 403 }
+      )
+    }
+
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password)
     

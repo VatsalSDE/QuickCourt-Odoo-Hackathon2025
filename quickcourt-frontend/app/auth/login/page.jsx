@@ -50,6 +50,12 @@ export default function LoginPage() {
             router.push('/')
           }
         }, 1500)
+      } else if (result.requiresVerification) {
+        setError(result.error || 'Email verification required')
+        // Show verification button
+        setTimeout(() => {
+          router.push(`/auth/verify-email?email=${encodeURIComponent(result.email)}`)
+        }, 2000)
       } else {
         setError(result.error || 'Login failed')
       }

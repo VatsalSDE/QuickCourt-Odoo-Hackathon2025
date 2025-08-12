@@ -57,10 +57,17 @@ export default function SignupPage() {
       })
 
       if (result.success) {
-        setSuccess(result.message)
-        setTimeout(() => {
-          router.push('/auth/login')
-        }, 1500)
+        if (result.requiresVerification) {
+          setSuccess(result.message)
+          setTimeout(() => {
+            router.push(`/auth/verify-email?email=${encodeURIComponent(result.email)}`)
+          }, 1500)
+        } else {
+          setSuccess(result.message)
+          setTimeout(() => {
+            router.push('/auth/login')
+          }, 1500)
+        }
       } else {
         setError(result.error || 'Signup failed')
       }

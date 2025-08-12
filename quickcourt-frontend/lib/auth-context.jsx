@@ -47,6 +47,15 @@ export function AuthProvider({ children }) {
         setIsAuthenticated(true)
         return { success: true, user: data.user }
       } else {
+        // Handle email verification requirement
+        if (data.requiresVerification) {
+          return { 
+            success: false, 
+            error: data.message,
+            requiresVerification: true,
+            email: data.email
+          }
+        }
         return { success: false, error: data.message }
       }
     } catch (error) {
@@ -67,7 +76,12 @@ export function AuthProvider({ children }) {
       const data = await response.json()
 
       if (response.ok) {
-        return { success: true, message: data.message }
+        return { 
+          success: true, 
+          message: data.message,
+          requiresVerification: data.requiresVerification,
+          email: data.email
+        }
       } else {
         return { success: false, error: data.message }
       }

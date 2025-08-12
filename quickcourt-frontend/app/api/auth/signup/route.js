@@ -59,7 +59,7 @@ export async function POST(request) {
     const saltRounds = 12
     const hashedPassword = await bcrypt.hash(password, saltRounds)
 
-    // Create user
+    // Create user (inactive until email verification)
     const newUser = {
       fullname,
       email: email.toLowerCase(),
@@ -67,7 +67,8 @@ export async function POST(request) {
       role,
       createdAt: new Date(),
       updatedAt: new Date(),
-      isActive: true,
+      isActive: false,
+      emailVerified: false,
       profile: {
         avatar: null,
         phone: null,
@@ -80,16 +81,22 @@ export async function POST(request) {
 
     await client.close()
 
-    // Remove password from response
-    const { password: _, ...userWithoutPassword } = newUser
+    // Send OTP for email verification
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/otp/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.toLowerCase(), type: 'signup' })
+      })
+    } catch (otpError) {
+      console.error('OTP sending error:', otpError)
+    }
 
     return NextResponse.json(
       { 
-        message: 'User created successfully! Please login.',
-        user: {
-          ...userWithoutPassword,
-          _id: result.insertedId
-        }
+        message: 'Account created successfully! Please check your email for verification code.',
+        requiresVerification: true,
+        email: email.toLowerCase()
       },
       { status: 201 }
     )
