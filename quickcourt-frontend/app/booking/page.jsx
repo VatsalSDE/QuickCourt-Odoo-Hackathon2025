@@ -295,10 +295,33 @@ export default function BookingPage() {
         name: "QuickCourt",
         description: "Court Slot Booking",
         order_id: order.id,
-        handler: function (response) {
+        handler: async function (response) {
           console.log('Payment successful:', response);
-          setPaymentDetails(prev => ({ ...prev, ...response }))
-          setBookingStep(4);
+          
+          try {
+            // Verify payment with server
+            const verifyRes = await fetch('/api/verify-payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature
+              })
+            });
+            
+            const verifyData = await verifyRes.json();
+            
+            if (verifyData.verified) {
+              setPaymentDetails(prev => ({ ...prev, ...response, verified: true }));
+              setBookingStep(4);
+            } else {
+              throw new Error('Payment verification failed');
+            }
+          } catch (error) {
+            console.error('Payment verification error:', error);
+            alert('Payment verification failed. Please contact support.');
+          }
         },
         prefill: {
           name: user?.fullname || "Customer Name",

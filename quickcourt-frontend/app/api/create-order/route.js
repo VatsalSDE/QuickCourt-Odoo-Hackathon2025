@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import Razorpay from 'razorpay'
 
 export async function POST(request) {
   try {
@@ -42,26 +43,35 @@ export async function POST(request) {
       )
     }
 
-    // Generate a mock order ID for demo purposes
-    // In production, you would integrate with Razorpay API to create actual orders
-    // Razorpay expects order IDs to be unique and follow their format
-    let orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    
-    // Ensure the order ID is valid for Razorpay (max 40 characters)
-    if (orderId.length > 40) {
-      orderId = orderId.substring(0, 40);
+    // Check if Razorpay credentials are available
+    const razorpayKeyId = process.env.RAZORPAY_KEY_ID
+    const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET
+
+    if (!razorpayKeyId || !razorpayKeySecret) {
+      console.error('Razorpay credentials not found')
+      return NextResponse.json(
+        { message: 'Payment gateway configuration error' },
+        { status: 500 }
+      )
     }
-    
-    const order = {
-      id: orderId,
-      amount: amountInPaise, // Already calculated and validated above
+
+    // Initialize Razorpay instance
+    const razorpay = new Razorpay({
+      key_id: razorpayKeyId,
+      key_secret: razorpayKeySecret,
+    })
+
+    // Create order with Razorpay
+    const options = {
+      amount: amountInPaise,
       currency: 'INR',
       receipt: `receipt_${Date.now()}`,
-      status: 'created',
-      created_at: Date.now()
+      payment_capture: 1,
     }
+
+    const order = await razorpay.orders.create(options)
     
-    console.log('Order created:', { 
+    console.log('Razorpay order created:', { 
       originalAmount: amount, 
       numericAmount, 
       amountInPaise: order.amount,
@@ -72,8 +82,17 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('Error creating order:', error)
+    
+    // If Razorpay API fails, return a more specific error
+    if (error.error && error.error.description) {
+      return NextResponse.json(
+        { message: error.error.description },
+        { status: 400 }
+      )
+    }
+    
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { message: 'Failed to create payment order' },
       { status: 500 }
     )
   }
