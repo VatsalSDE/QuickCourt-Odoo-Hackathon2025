@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { MongoClient } from 'mongodb'
+import { MongoClient, ObjectId } from 'mongodb'
 
 const uri = process.env.MONGODB_URI
 const dbName = process.env.MONGODB_DB || 'quickcourt'
@@ -7,6 +7,9 @@ const dbName = process.env.MONGODB_DB || 'quickcourt'
 // POST create new booking
 export async function POST(request) {
   try {
+    const requestData = await request.json()
+    console.log('Received booking request:', requestData)
+    
     const {
       venueId,
       courtId,
@@ -19,7 +22,7 @@ export async function POST(request) {
       userId,
       userName,
       userEmail
-    } = await request.json()
+    } = requestData
 
     // Validation
     if (!venueId || !courtId || !date || !timeSlots || timeSlots.length === 0) {
@@ -28,6 +31,8 @@ export async function POST(request) {
         { status: 400 }
       )
     }
+
+
 
     const client = new MongoClient(uri)
     await client.connect()
@@ -105,8 +110,13 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('Error creating booking:', error)
+    console.error('Error stack:', error.stack)
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { 
+        message: 'Internal server error',
+        error: error.message,
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      },
       { status: 500 }
     )
   }
@@ -147,8 +157,13 @@ export async function GET(request) {
 
   } catch (error) {
     console.error('Error fetching bookings:', error)
+    console.error('Error stack:', error.stack)
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { 
+        message: 'Internal server error',
+        error: error.message,
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      },
       { status: 500 }
     )
   }
